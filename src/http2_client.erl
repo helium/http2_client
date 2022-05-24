@@ -187,6 +187,8 @@
 -define(WINDOW_UPDATE, 16#8).
 -define(CONTINUATION, 16#9).
 
+-define(CONNECT_TIMEOUT, 30000).
+
 -type stream_id() :: integer().
 -type header() :: [{Name::binary, Value::binary()}].
 -type send_option() :: {end_stream, boolean()}.
@@ -252,7 +254,8 @@
       continuation := continuation_data() | undefined,
       ping_sent := [{binary(),     %% the opaque data that was sent
                      integer()}],  %% the time when it was sent
-      stream_count := integer()}.
+      stream_count := integer(),
+      socket_mon := port()  }.
 
 -export_type([connection_option/0,
               stream_option/0]).
@@ -369,9 +372,10 @@ init({Transport0, Host, Port, Options, Owner}) ->
                 {[], Options}
         end,
     ConnectResult = Transport:connect(Host, Port,
-                                      TransportOptions ++ default_opts(Transport)),
+                                      TransportOptions ++ default_opts(Transport)), ?CONNECT_TIMEOUT,
     case ConnectResult of
         {ok, Socket} ->
+            Ref = monitor(port, Socket),
             new_connection(
               #{socket => Socket,
                 owner => Owner,
@@ -393,7 +397,8 @@ init({Transport0, Host, Port, Options, Owner}) ->
                                   %% set to 0 if no streams were processed.
                 ping_sent => [],
                 stream_count => 0,
-                timeout => 3000   %% milliseconds
+                timeout => 3000,   %% milliseconds
+                socket_mon => Ref
                }, H2Opts);
         {error, Error} ->
             {stop, Error}
@@ -510,6 +515,8 @@ handle_info({ping_timeout, Opaque}, #{ping_sent := Pings} = C) ->
         false ->
             {noreply, C}
     end;
+handle_info({'DOWN', MRef, port, Socket, _Reason}, #{socket_mon := MRef, socket := Socket} = C) ->
+    {stop, socket_down, C};
 handle_info(_Other, C) ->
 %%    io:format("got unexpected info: ~p~n", [_Other]),
     {noreply, C}.
