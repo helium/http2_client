@@ -372,7 +372,7 @@ init({Transport0, Host, Port, Options, Owner}) ->
                 {[], Options}
         end,
     ConnectResult = Transport:connect(Host, Port,
-                                      TransportOptions ++ default_opts(Transport)), ?CONNECT_TIMEOUT,
+                                      TransportOptions ++ default_opts(Transport), ?CONNECT_TIMEOUT),
     case ConnectResult of
         {ok, Socket} ->
             Ref = monitor(port, Socket),
