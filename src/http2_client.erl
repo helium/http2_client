@@ -642,7 +642,7 @@ parse_setting(_, _) ->
 %%    +=+=============================================================+
 %%    |                   Frame Payload (0...)                      ...
 %%    +---------------------------------------------------------------+
-handle_packet(<<Length:24, Type:8, Flags:1/binary, _R:1, StreamId:31, 
+handle_packet(<<Length:24, Type:8, Flags:1/binary, _R:1, StreamId:31,
                 Payload:Length/binary, Rest/bits>>, C) ->
     handle_packet(Rest, 
                   handle_message0(Type, Flags, StreamId, Payload, Length, C));
@@ -822,9 +822,16 @@ handle_window_update(_Flags, StreamId, <<_R:1, Increment:31>>, _Size,
 handle_settings(_Flags, StreamId, _Data, _Size, C) when StreamId /= 0 ->
     connection_error(C, ?PROTOCOL_ERROR);
 handle_settings([?ACK], _, _Data, _Size, C) ->
-    %% Ack is ignored.
+    %% Ack is deliberately ignored.
+    C;
+handle_settings(_Flags, _, _Data, _Size, C) ->
+    %% And for now ignore all other setting frames
+    %% received from the server
+    %% TODO: other SETTINGS frames
     C.
-%% TODO: other SETTINGS frames.
+
+
+
 
 %%    +---------------+
 %%    |Pad Length? (8)|
